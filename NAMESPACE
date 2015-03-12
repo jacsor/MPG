@@ -1,0 +1,6 @@
+useDynLib(MPG)
+import(RcppArmadillo)
+importFrom(Rcpp, evalCpp)
+# exportPattern("^[[:alpha:]]+")
+
+export(mpg, plotDiff, calibrate)
