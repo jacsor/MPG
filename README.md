@@ -33,6 +33,10 @@ C = c( rep(1,sum(n)), rep(2,sum(n)))
 ans = mpg(Y, C)  
 plotDiff(ans, type = "weight")
 plotDiff(ans, type = "shift")
+cal = calibrate(ans)
+par(mfrow=c(1,2))
+plot(Y, col = C)
+plot(cal$Y_cal, col = C)
 ```
 
 ### Reference
