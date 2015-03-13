@@ -5,7 +5,11 @@ Version: 1.0
 Date: 2015-03-10
 Author: Jacopo Soriano
 Maintainer: Jacopo Soriano <jacopo.soriano@gmail.com>
-Description: Bayesian model for comparison accross mixtures of perturbed Gaussians. The model detects variations in the mixture weights and in the mixture locations across the mixture models. 
-License:  GPL (>= 3)
-Imports: Rcpp (>= 0.11.2), RcppArmadillo (>= 0.4.400.0)
+Description: Bayesian model for comparison accross mixtures of perturbed
+    Gaussians. The model detects variations in the mixture weights and in the
+    mixture locations across the mixture models.
+License: GPL (>= 3)
+Imports:
+    Rcpp (>= 0.11.2),
+    RcppArmadillo (>= 0.4.400.0)
 LinkingTo: Rcpp, RcppArmadillo

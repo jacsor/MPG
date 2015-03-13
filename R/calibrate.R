@@ -39,7 +39,7 @@ calibrate <- function(x)
                  x$chain$mu, dim(x$chain$mu),
                  x$chain$mu_0, dim(x$chain$mu_0),
                  x$chain$S ) 
-  colnames(output$Ycal) = colnames(x$data$Y)
+  colnames(output$Y_cal) = colnames(x$data$Y)
   return(output)
   
 }
