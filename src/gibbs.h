@@ -41,6 +41,7 @@ class MCMC
   vec tau_varphi; // (2)
   vec varphi_pm; // (2); varphi_0.fill(0);  
   bool merge_step;  // 
+  double merge_par;
   // latent indicator initial values
   uvec Z_input; 
   

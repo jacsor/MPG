@@ -39,6 +39,7 @@ MCMC::MCMC( mat Y,
       tau_varphi = Rcpp::as<vec>(prior["tau_varphi"]);
       varphi_pm = Rcpp::as<vec>(prior["point_masses_varphi"]);
       merge_step = Rcpp::as<bool>(prior["merge_step"]);
+      merge_par = Rcpp::as<double>(prior["merge_par"]);
       Z_input = Rcpp::as<uvec>(state["Z"]);
 
       length_chain =  num_iter/num_thin;
@@ -174,7 +175,7 @@ void MCMC::main_loop()
                                   Omega.slice(k), 
                                   Sigma.slice(kk), 
                                   Omega.slice(kk) ) / epsilon ;
-              if( kl_div < R::qchisq(0.9, (double)p, 1, 0) )
+              if( kl_div < R::qchisq(merge_par, (double)p, 1, 0) )
               {
                 N.col(k) = N.col(k) + N.col(kk);
                 N.col(kk) = zeros<vec>(J);

@@ -10,6 +10,7 @@
 #' \code{K_1} Number of mixture components with independent weights. 
 #' \code{epsilon_range} Vector with minimum and maximum values for \code{epsilon}.
 #' \code{merge_step} Introduce step to merge mixture components with small KL divergence. Default is \code{merge_step = TRUE}.
+#' \code{merge_par} Parameter controlling merging radius. Default is \code{merge_par = 0.5}.
 #' @param mcmc A list giving the MCMC parameters. If unspecified, default parameters are used.  
 #' The list includes the following parameters: \code{nburn} indicates the number of burn-in scans,
 #' \code{nsave} indicates the number of scans to be saved,
@@ -58,7 +59,8 @@ mpg <- function(Y, C, prior = NULL, mcmc = NULL, state = NULL)
                   point_masses_rho = c(0.0, 0.0),
                   tau_varphi = c(0.5,0.5),
                   point_masses_varphi = c(0.0, 0.0),
-                  merge_step = TRUE
+                  merge_step = TRUE,
+                  merge_par = 0.5
     )
   }
   else
@@ -93,6 +95,8 @@ mpg <- function(Y, C, prior = NULL, mcmc = NULL, state = NULL)
       prior$point_masses_varphi = c(0.0, 0.0)
     if(is.null(prior$merge_step))
       prior$merge_step = TRUE
+    if(is.null(prior$merge_par))
+      prior$merge_par = 0.5
   }
   
   if(is.null(mcmc))

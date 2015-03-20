@@ -61,8 +61,10 @@ plotDiff <- function( object, type = "weight",
   
   for(j in group)
   {
-    plot(object$data$Y[object$data$C==j,dim],
-         col = colors[ round(99*colMeans(state[,object$data$C==j])) + 1 ], 
+    effect = round(99*colMeans(state[,object$data$C==j])) + 1
+    order = sort.int(effect, index.return = TRUE)$ix
+    plot(object$data$Y[object$data$C==j,dim][order,],
+         col = colors[effect[order]], 
          pch = 16, xlim = xlim*c(1,1.1), ylim = ylim,
          xlab = xlab,
          ylab = ylab)
