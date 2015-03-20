@@ -16,7 +16,7 @@ The list includes the following hyparameters:
 \code{K_1} Number of mixture components with independent weights.
 \code{epsilon_range} Vector with minimum and maximum values for \code{epsilon}.
 \code{merge_step} Introduce step to merge mixture components with small KL divergence. Default is \code{merge_step = TRUE}.
-\code{merge_par} Parameter controlling merging radius. Default is \code{merge_par = 0.5}.}
+\code{merge_par} Parameter controlling merging radius. Default is \code{merge_par = 0.1}.}
 
 \item{mcmc}{A list giving the MCMC parameters. If unspecified, default parameters are used.
 The list includes the following parameters: \code{nburn} indicates the number of burn-in scans,
