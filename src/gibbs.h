@@ -18,13 +18,14 @@ class MCMC
   int n;            // number of observations
   int p;            // observation dimension
   int num_iter, num_burnin, num_thin, num_display;   // number of iteration, burnin and thinning
-  
+  int seed;         // initial random seed
+
   /* --- hyperparameters --- */
 
   vec epsilon_range; 
   double nu_2;        // nu_2 = p + 2
   double nu_1;   // nu_1 = p + 2
-  // Hyperparamter of the Inverse Wishart on Psi_1
+  // Hyperparameter of the Inverse Wishart on Psi_1
   mat Psi_2; //  = eye<mat>(p,p);  
   // mean of the Normal prior on m_1
   vec m_2; // (p);  m_2.zeros();    
