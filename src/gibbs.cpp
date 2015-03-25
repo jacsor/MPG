@@ -25,7 +25,15 @@ MCMC::MCMC( mat Y,
       num_burnin = Rcpp::as<int>(mcmc["nburn"]);
       num_thin = Rcpp::as<int>(mcmc["nskip"]);    
       num_display = Rcpp::as<int>(mcmc["ndisplay"]);    
-      
+
+      // set Armadillo seed (Rcpp seed inherited from R in mpg.R)
+      // NOTE: Rstudio seems to touch Armadillo's underlying RNG, so
+      // differing results may be seen when run from Rstudio, see comments
+      // from Dirk Eddelbuettel here:
+      //  https://github.com/RcppCore/RcppArmadillo/issues/11
+      seed = Rcpp::as<int>(mcmc["seed"]);
+      arma::arma_rng::set_seed(seed);
+
       epsilon_range = Rcpp::as<vec>(prior["epsilon_range"]);
       m_2 = Rcpp::as<vec>(prior["m_2"]);
       nu_2 = Rcpp::as<double>(prior["nu_2"]);    

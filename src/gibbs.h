@@ -18,7 +18,8 @@ class MCMC
   int n;            // number of observations
   int p;            // observation dimension
   int num_iter, num_burnin, num_thin, num_display;   // number of iteration, burnin and thinning
-  
+  int seed;         // initial random seed
+
   /* --- hyperparameters --- */
 
   vec epsilon_range; 
