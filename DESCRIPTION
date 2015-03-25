@@ -10,6 +10,6 @@ Description: Bayesian model for comparison accross mixtures of perturbed
     mixture locations across the mixture models.
 License: GPL (>= 3)
 Imports:
-    Rcpp (>= 0.11.2),
-    RcppArmadillo (>= 0.4.400.0)
+    Rcpp (>= 0.11.0),
+    RcppArmadillo (>= 0.4.000.0)
 LinkingTo: Rcpp, RcppArmadillo
