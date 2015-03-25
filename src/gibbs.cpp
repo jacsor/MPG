@@ -73,12 +73,12 @@ void MCMC::main_loop()
   int km = 0;
   // latent indicators
   uvec S(K_0 + K_1);
-  // number of obserations per group and per component
+  // number of observations per group and per component
   mat N(J,K_0 + K_1);
   // used in the swap step
   mat temp;
   vec indices;
-  // latent assignemnts
+  // latent assignments
   uvec Z = Z_input;
 
   /* --- parameters --- */

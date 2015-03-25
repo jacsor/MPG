@@ -6,7 +6,7 @@
 Comparison across mixture models through mixtures of perturbed Gaussians
 }
 \description{
-Bayesian model for comparison accross mixtures of perturbed Gaussians. 
+Bayesian model for comparison across mixtures of perturbed Gaussians.
 The model detects variations in the mixture weights and in the mixture locations across the mixture models. 
 }
 \details{
