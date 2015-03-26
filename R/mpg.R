@@ -101,7 +101,7 @@ mpg <- function(Y, C, prior = NULL, mcmc = NULL, state = NULL)
   
   if(is.null(mcmc))
   {
-    mcmc = list(nburn = 5000, nsave = 1000, nskip = 1, ndisplay = 1000)
+    mcmc = list(nburn = 5000, nsave = 1000, nskip = 1, ndisplay = 1000, seed = 42)
   }
   else
   {
@@ -113,7 +113,17 @@ mpg <- function(Y, C, prior = NULL, mcmc = NULL, state = NULL)
       mcmc$nskip = 1
     if(is.null(mcmc$ndisplay))
       mcmc$ndisplay = 100
+    if(is.null(mcmc$seed))
+      mcmc$seed = 42
   }
+
+  # set initial random seed for R here, it will propagate down to Rcpp
+  # but Armadillo's RNG will get set in MCMC class in gibbs.h
+  # NOTE: Rstudio seems to touch Armadillo's underlying RNG, so
+  # differing results may be seen when run from Rstudio, see comments
+  # from Dirk Eddelbuettel here:
+  #  https://github.com/RcppCore/RcppArmadillo/issues/11
+  set.seed(mcmc$seed)
   
   J = length(unique(C))
   if( sum( sort(unique(C)) == 1:J )  != J )
