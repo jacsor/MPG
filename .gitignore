@@ -9,3 +9,6 @@
 
 # Jetbrains project directory
 .idea
+
+# Rstudio project files
+*.Rproj
