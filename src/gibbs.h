@@ -56,7 +56,13 @@ class MCMC
   
   void main_loop();
   Rcpp::List InitMuSigma(uvec Z, int k);
-  
+
+  Rcpp::List GenerateZetas( mat loglike,
+                            arma::vec logW_0,
+                            arma::mat logW_1,
+                            double rho,
+                            int n_cores );
+
   Rcpp::List UpdateZetas(   arma::cube mu, 
                             arma::cube Omega, 
                             arma::vec logW_0,
