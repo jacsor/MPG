@@ -145,8 +145,10 @@ void MCMC::main_loop()
   
   List tempZ = UpdateZetas(mu, Omega, logW_0, logW_1, rho, 1);   
   Z = Rcpp::as<uvec>(tempZ["Z"]);  
-  N = Rcpp::as<mat>(tempZ["N"]);  
-  
+  N = Rcpp::as<mat>(tempZ["N"]);
+
+  int max_threads = omp_get_max_threads();
+  cout << "Maximum threads available: " << max_threads << endl;
       
   /* --- let the chain run --- */
 
@@ -455,23 +457,25 @@ Rcpp::List MCMC::GenerateZetas( arma::mat log_like,
 }
 
 
-Rcpp::List MCMC::UpdateZetas(   arma::cube mu, 
-                                arma::cube Omega, 
+Rcpp::List MCMC::UpdateZetas(   arma::cube mu,
+                                arma::cube Omega,
                                 arma::vec logW_0,
                                 arma::mat logW_1,
                                 double rho,
                                 int n_cores )
 {
   mat log_like(n, K_0 + K_1);
-  uvec index(1);
   uvec C_j;
+  int j;  // used as private index of for loop inside omp below
   
   if( rho > 0)
   {
+    #pragma omp parallel for private(j, C_j)
     for(int k = 0; k < K_0; k++)
-    {    
+    {
+      uvec index(1);
       index(0) = k;
-      for(int j=0; j < J; j++)
+      for(j=0; j < J; j++)
       {
         C_j = arma::find(C==j);
         log_like.submat(C_j,  index) = dmvnrm_arma_precision(
@@ -479,13 +483,15 @@ Rcpp::List MCMC::UpdateZetas(   arma::cube mu,
           mu.slice(k).row(j),
           Omega.slice(k)
         ) + log(rho);
-      }  
-    }  
+      }
+    }
   }
   if( rho < 1 )
   {
+    #pragma omp parallel for private(j, C_j)
     for(int k = K_0; k < K_0 + K_1; k++)
-    {    
+    {
+      uvec index(1);
       index(0) = k;
       for(int j=0; j < J; j++)
       {
@@ -495,16 +501,16 @@ Rcpp::List MCMC::UpdateZetas(   arma::cube mu,
           mu.slice(k).row(j),
           Omega.slice(k)
         ) + log(1 - rho);
-      }  
-    }    
-  }  
+      }
+    }
+  }
   
   Rcpp::List zetas_output = GenerateZetas(log_like, logW_0, logW_1, rho, n_cores);
   
   return zetas_output;
 }
 
-                               
+
 arma::vec MCMC::UpdateAlpha(arma::vec alpha, arma::mat N, arma::vec alpha_par)
 {
   vec output = alpha;    
