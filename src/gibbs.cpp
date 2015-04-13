@@ -1,6 +1,7 @@
 #include <RcppArmadillo.h>
-#include "helpers.h"   
-#include "gibbs.h"  
+#include <omp.h>
+#include "helpers.h"
+#include "gibbs.h"
 
 using namespace Rcpp;
 using namespace arma;
@@ -17,8 +18,11 @@ MCMC::MCMC( mat Y,
 {
        
       p = Y.n_cols;  
-      n = Y.n_rows;  
+      n = Y.n_rows;
+
+      // Number of data sets
       J = C.max() + 1;
+
       K_0 = Rcpp::as<int>(prior["K_0"]);
       K_1 = Rcpp::as<int>(prior["K_1"]);
       num_iter = Rcpp::as<int>(mcmc["nskip"]) * Rcpp::as<int>(mcmc["nsave"]);
@@ -141,8 +145,10 @@ void MCMC::main_loop()
   
   List tempZ = UpdateZetas(mu, Omega, logW_0, logW_1, rho, 1);   
   Z = Rcpp::as<uvec>(tempZ["Z"]);  
-  N = Rcpp::as<mat>(tempZ["N"]);  
-  
+  N = Rcpp::as<mat>(tempZ["N"]);
+
+  int max_threads = omp_get_max_threads();
+  cout << "Maximum threads available: " << max_threads << endl;
       
   /* --- let the chain run --- */
 
@@ -327,7 +333,7 @@ void MCMC::main_loop()
   
   cout << endl << "MH acceptance rate " << endl;
   cout << "epsilon: " << (double)epsilon_count/num_iter << endl;
-  cout << "alpha: " << alpha_count.t() / (double)num_iter << endl << endl;
+  cout << "alpha: " << alpha_count.t() / (double)num_iter << endl;
   
 }     
 
@@ -384,91 +390,127 @@ Rcpp::List MCMC::InitMuSigma(uvec Z, int k)
 }
 
 
-
-
-
-Rcpp::List MCMC::UpdateZetas(   arma::cube mu, 
-                                arma::cube Omega, 
+Rcpp::List MCMC::GenerateZetas( arma::mat log_like,
                                 arma::vec logW_0,
                                 arma::mat logW_1,
                                 double rho,
-                                int n_cores )
+                                int n_cores)
 {
-  mat N(J, K_0 + K_1); N.fill(0);
-  uvec  Z(n);  Z.fill(0);  
+  // J is the number of data sets,
+  // K_0 & K_1 are the number of mixture components
+  // So, N has a row for each data set, a column for each component
+  mat N(J, K_0 + K_1);
+  N.fill(0);
+
+  // Zeta vector assigning each data point to a component
+  uvec Z(n);
+  Z.fill(0);
+
+  // generate a new random uniform distribution for this iteration
+  NumericVector U = runif(n);
+
+  // log likelihood
   double tot_log_like = 0.0;
-  mat loglike(n, K_0 + K_1);
-  NumericVector U = runif(n);  
-  uvec index(1); 
-  
-  if( rho > 0)
+  vec prob;
+  vec probsum;
+  double x;
+  bool not_assigned;
+
+  int i;
+  int k;
+  #pragma omp parallel for private(k, prob, probsum, x, not_assigned)
+  for(i = 0; i < n; i++)
   {
-    for(int k = 0; k < K_0; k++)
-    {    
-      index(0) = k;
-      for(int j=0; j < J; j++)
-      {
-        uvec C_j = arma::find(C==j);
-          loglike.submat(C_j,  index) = dmvnrm_arma_precision(Y.rows(C_j), mu.slice(k).row(j), 
-            Omega.slice(k)) + log(rho);      
-      }  
-    }  
-  }
-  if( rho < 1 )
-  {
-    for(int k = K_0; k < K_0 + K_1; k++)
-    {    
-      index(0) = k;
-      for(int j=0; j < J; j++)
-      {
-        uvec C_j = arma::find(C==j);
-          loglike.submat(C_j,  index) = dmvnrm_arma_precision(Y.rows(C_j), mu.slice(k).row(j), 
-            Omega.slice(k)) + log(1 - rho);      
-      }  
-    }    
-  }  
-  
-  omp_set_num_threads(n_cores);
-  // #pragma omp parallel for schedule(static) 
-  for(int i=0; i < n; i++)
-  {
-    vec prob =  loglike.row(i).t();
+    prob = log_like.row(i).t();
     prob.rows(K_0, K_0 + K_1 - 1) = prob.rows(K_0, K_0 + K_1 - 1) + logW_1.row(C(i)).t();
-    prob.rows(0,K_0-1) = prob.rows(0,K_0-1) + logW_0;
+    prob.rows(0,K_0-1) = prob.rows(0, K_0 - 1) + logW_0;
     prob = exp(prob);
-    if( rho == 1 ) 
-      prob.rows( 0, K_0-1 ).fill(0);
-    else if(rho == 0)
+
+    if( rho == 1 ) {
+      prob.rows( 0, K_0 - 1 ).fill(0);
+    } else if(rho == 0) {
       prob.rows( K_0, K_0 + K_1 - 1 ).fill(0);
-    vec probsum = cumsum(prob);
-    double x = U(i) * sum(prob);
-    bool not_assigned = true;
-    for (int k = 0; (k < K_0 + K_1) && not_assigned; k++)
-    {  
+    }
+
+    probsum = cumsum(prob);
+    x = U(i) * sum(prob);
+    not_assigned = true;
+    for (k = 0; (k < K_0 + K_1) && not_assigned; k++)
+    {
       if(x <= probsum(k))
       {
         Z(i) = k;
         // S(i) = (k - k%(K_0 + K_1))/(K_0 + K_1);  // from 0 to 1
         not_assigned = false;
-      }     
-    }      
+      }
+    }
   }
-    
-  for(int i=0; i< n; i++)
-  {      
-    N(C(i),Z(i))++;  
-    tot_log_like += loglike(i,Z(i));        
+
+  for(i = 0; i < n; i++) {
+    N(C(i), Z(i))++;
+    tot_log_like += log_like(i,Z(i));
   }
-  
+
   return Rcpp::List::create(  Rcpp::Named( "Z" ) = Z,
                               Rcpp::Named( "N" ) = N,
-                              Rcpp::Named( "tot_log_like" ) = tot_log_like ) ;                                
-                              
+                              Rcpp::Named( "tot_log_like" ) = tot_log_like ) ;
 }
 
 
+Rcpp::List MCMC::UpdateZetas(   arma::cube mu,
+                                arma::cube Omega,
+                                arma::vec logW_0,
+                                arma::mat logW_1,
+                                double rho,
+                                int n_cores )
+{
+  mat log_like(n, K_0 + K_1);
+  uvec C_j;
+  int j;  // used as private index of for loop inside omp below
+  
+  if( rho > 0)
+  {
+    #pragma omp parallel for private(j, C_j)
+    for(int k = 0; k < K_0; k++)
+    {
+      uvec index(1);
+      index(0) = k;
+      for(j=0; j < J; j++)
+      {
+        C_j = arma::find(C==j);
+        log_like.submat(C_j,  index) = dmvnrm_arma_precision(
+          Y.rows(C_j),
+          mu.slice(k).row(j),
+          Omega.slice(k)
+        ) + log(rho);
+      }
+    }
+  }
+  if( rho < 1 )
+  {
+    #pragma omp parallel for private(j, C_j)
+    for(int k = K_0; k < K_0 + K_1; k++)
+    {
+      uvec index(1);
+      index(0) = k;
+      for(int j=0; j < J; j++)
+      {
+        C_j = arma::find(C==j);
+        log_like.submat(C_j,  index) = dmvnrm_arma_precision(
+          Y.rows(C_j),
+          mu.slice(k).row(j),
+          Omega.slice(k)
+        ) + log(1 - rho);
+      }
+    }
+  }
+  
+  Rcpp::List zetas_output = GenerateZetas(log_like, logW_0, logW_1, rho, n_cores);
+  
+  return zetas_output;
+}
 
-                               
+
 arma::vec MCMC::UpdateAlpha(arma::vec alpha, arma::mat N, arma::vec alpha_par)
 {
   vec output = alpha;    
