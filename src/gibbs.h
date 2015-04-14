@@ -24,7 +24,7 @@ class MCMC
 
   vec epsilon_range; 
   double nu_2;        // nu_2 = p + 2
-  double nu_1;   // nu_1 = p + 2
+  int nu_1;   // nu_1 = p + 2
   // Hyperparameter of the Inverse Wishart on Psi_1
   mat Psi_2; //  = eye<mat>(p,p);  
   // mean of the Normal prior on m_1
@@ -60,15 +60,13 @@ class MCMC
   Rcpp::List GenerateZetas( mat loglike,
                             arma::vec logW_0,
                             arma::mat logW_1,
-                            double rho,
-                            int n_cores );
+                            double rho );
 
   Rcpp::List UpdateZetas(   arma::cube mu, 
                             arma::cube Omega, 
                             arma::vec logW_0,
                             arma::mat logW_1,
-                            double rho,
-                            int n_cores=1 );
+                            double rho );
   
   arma::vec swapStep(   arma::mat N,
                         arma::vec alpha  );                          
@@ -88,7 +86,10 @@ class MCMC
                               arma::mat Omega_1, 
                               double k_0, 
                               double epsilon,
-                              arma::vec m_1 );      
+                              arma::vec m_1,
+                              double r,
+                              arma::mat mean_std,
+                              arma::mat cov_std  );      
                               
   double UpdateK0(  arma::cube Omega, 
                     arma::mat mu_0,

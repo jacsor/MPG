@@ -11,7 +11,14 @@ double log_exp_x_plus_exp_y(double x, double y);
 
 arma::mat mvrnormArma(int n, arma::vec mu, arma::mat sigma); 
 
+arma::mat mvrnormScaling( arma::mat Y, 
+                          arma::vec mu, 
+                          arma::mat sigma );
+
 arma::mat rWishartArma(arma::mat Sigma, int df);
+
+arma::mat WishartScaling(arma::mat Y, arma::mat Sigma);
+
 
 arma::vec dmvnrm_arma_precision(  arma::mat x,  
                                   arma::rowvec mean,  
