@@ -30,11 +30,26 @@ arma::mat mvrnormArma(int n, arma::vec mu, arma::mat sigma)
   return arma::repmat(mu, 1, n).t() + Y * arma::chol(sigma);
 }
 
+arma::mat mvrnormScaling( arma::mat Y, arma::vec mu, arma::mat sigma) 
+{
+  int n = Y.n_rows;
+  return arma::repmat(mu, 1, n).t() + Y * arma::chol(sigma);
+}
+
 arma::mat rWishartArma(arma::mat Sigma, int df)
 {
   int p = Sigma.n_rows;
   vec m(p); m.zeros();
   mat X = mvrnormArma(df, m, Sigma );
+  return X.t()*X;
+}
+
+arma::mat WishartScaling(arma::mat Y, arma::mat Sigma)
+{
+  // int df = Y.n_rows;
+  int p = Sigma.n_rows;
+  vec m(p); m.zeros();
+  mat X = mvrnormScaling(Y, m, Sigma); 
   return X.t()*X;
 }
 

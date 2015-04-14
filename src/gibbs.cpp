@@ -143,7 +143,7 @@ void MCMC::main_loop()
   
   // assign each observation to a mixture component
   
-  List tempZ = UpdateZetas(mu, Omega, logW_0, logW_1, rho, 1);   
+  List tempZ = UpdateZetas(mu, Omega, logW_0, logW_1, rho);   
   Z = Rcpp::as<uvec>(tempZ["Z"]);  
   N = Rcpp::as<mat>(tempZ["N"]);
 
@@ -254,22 +254,33 @@ void MCMC::main_loop()
     logW_0 = Rcpp::as<vec>(tempW["logW_0"]);
     logW_1 = Rcpp::as<mat>(tempW["logW_1"]);
     
-    List tempZ = UpdateZetas(mu, Omega, logW_0, logW_1, rho, 1);   
+    List tempZ = UpdateZetas(mu, Omega, logW_0, logW_1, rho);   
     Z = Rcpp::as<uvec>(tempZ["Z"]);  
     N = Rcpp::as<mat>(tempZ["N"]);  
     
+    vec  unif_draws = randu<vec>(K_0+K_1);
+    mat norm_draws = randn<mat>( (K_0+K_1)*(J+1), p);
+    mat norm_draws_cov = randn<mat>( nu_1*(K_0+K_1) + n, p);
+    vec dfs = zeros<vec>( K_0 + K_1 + 1 );
+    dfs.rows(1, K_0 + K_1)  =  cumsum( sum(N, 0).t() + nu_1 );
+    
+    List tempSMuSigma;
+    // #pragma omp parallel for private(tempSMuSigma)
     for(int k=0; k < K_0 + K_1; k++)
     {      
-      uvec Z_k = arma::find(Z==k);
-      List tempSMuSigma = UpdateSMuSigma( Z,
-                                          k,
-                                          mu_0.col(k),
-                                          varphi,
-                                          Sigma_1, 
-                                          Omega_1,
-                                          k_0, 
-                                          epsilon,
-                                          m_1 ); 
+      tempSMuSigma = UpdateSMuSigma(  Z,
+                                      k,
+                                      mu_0.col(k),
+                                      varphi,
+                                      Sigma_1, 
+                                      Omega_1,
+                                      k_0, 
+                                      epsilon,
+                                      m_1,
+                                      unif_draws(k),
+                                      norm_draws.rows( (J+1)*k, (J+1)*(k+1) - 1 ),
+                                      norm_draws_cov.rows(dfs(k), dfs(k+1) - 1 )
+                                    ); 
       S(k) = Rcpp::as<unsigned>(tempSMuSigma["S"]);
       mu.slice(k) = Rcpp::as<mat>(tempSMuSigma["mu"]); 
       mu_0.col(k) = Rcpp::as<vec>(tempSMuSigma["mu_0"]);
@@ -393,8 +404,7 @@ Rcpp::List MCMC::InitMuSigma(uvec Z, int k)
 Rcpp::List MCMC::GenerateZetas( arma::mat log_like,
                                 arma::vec logW_0,
                                 arma::mat logW_1,
-                                double rho,
-                                int n_cores)
+                                double rho  )
 {
   // J is the number of data sets,
   // K_0 & K_1 are the number of mixture components
@@ -461,8 +471,7 @@ Rcpp::List MCMC::UpdateZetas(   arma::cube mu,
                                 arma::cube Omega,
                                 arma::vec logW_0,
                                 arma::mat logW_1,
-                                double rho,
-                                int n_cores )
+                                double rho )
 {
   mat log_like(n, K_0 + K_1);
   uvec C_j;
@@ -505,7 +514,7 @@ Rcpp::List MCMC::UpdateZetas(   arma::cube mu,
     }
   }
   
-  Rcpp::List zetas_output = GenerateZetas(log_like, logW_0, logW_1, rho, n_cores);
+  Rcpp::List zetas_output = GenerateZetas(log_like, logW_0, logW_1, rho);
   
   return zetas_output;
 }
@@ -620,7 +629,10 @@ Rcpp::List MCMC::UpdateSMuSigma(  arma::uvec Z,
                                   arma::mat Omega_1, 
                                   double k_0, 
                                   double epsilon,
-                                  arma::vec m_1 ) 
+                                  arma::vec m_1,
+                                  double r,
+                                  arma::mat mean_std,
+                                  arma::mat cov_std  ) 
 { 
   uvec Z_k = arma::find(Z==k);  
   mat data_group = Y.rows(Z_k);
@@ -632,13 +644,13 @@ Rcpp::List MCMC::UpdateSMuSigma(  arma::uvec Z,
   mat Sigma(p,p);
   mat mu(p,J);
   mat mu_0new(p,1);  
-  double r = R::runif(0,1);
+  // double r = R::runif(0,1);
   
   if(N_k == 0)
   {
-    Omega = rWishartArma(Omega_1, nu_1);
+    Omega = WishartScaling(cov_std, Omega_1);
     Sigma = inv_sympd( Omega );       
-    mu_0new = trans(mvrnormArma(1, m_1, Sigma/k_0));    
+    mu_0new = trans( mvrnormScaling(mean_std.row(0).cols(0,p-1), m_1, Sigma/k_0) );    
     
     if( r < varphi )
     {
@@ -649,7 +661,7 @@ Rcpp::List MCMC::UpdateSMuSigma(  arma::uvec Z,
     {
       S_k = 1;
       for(int j=0; j<J; j++)
-        mu.col(j) = trans( mvrnormArma(1, mu_0new,  Sigma*epsilon ));      
+        mu.col(j) = trans( mvrnormScaling(mean_std.row(j+1).cols(0,p-1), mu_0new,  Sigma*epsilon ));      
     }
   }
   else  // N_k > 0
@@ -719,27 +731,28 @@ Rcpp::List MCMC::UpdateSMuSigma(  arma::uvec Z,
     if( r < prob )
     {
       S_k = 0;
-      Omega = rWishartArma(Psi_0, nu_1 + N_k);
+      Omega = WishartScaling(cov_std, Psi_0);
       Sigma = inv_sympd( Omega ); 
-      mu_0new = trans( mvrnormArma(1, m1_0, Sigma/(k_0+N_k)) );      
+      mu_0new = trans( mvrnormScaling(mean_std.row(0).cols(0,p-1), m1_0, Sigma/(k_0+N_k)) );      
       mu = repmat(mu_0new, 1, J);
     }
     else 
     {
       S_k = 1;
-      Omega = rWishartArma(Psi_1, nu_1 + N_k);
+      Omega = WishartScaling(cov_std, Psi_1);
       Sigma = inv_sympd( Omega ); 
       m1_1 = m1_1 / extra_piece_var_1;
-      mu_0new = trans( mvrnormArma(1, m1_1, Sigma/extra_piece_var_1));
+      mu_0new = trans( mvrnormScaling(mean_std.row(0).cols(0,p-1), m1_1, Sigma/extra_piece_var_1));
       for(int j=0; j<J; j++)
       {
         if( n_jk(j) > 0 )
         {
-          mu.col(j) = trans(mvrnormArma(1, (n_jk(j)*mean_jk.col(j) + 1.0/epsilon*mu_0new)/(n_jk(j) + 1.0/epsilon), 
+          mu.col(j) = trans( mvrnormScaling(mean_std.row(j+1).cols(0,p-1), 
+            (n_jk(j)*mean_jk.col(j) + 1.0/epsilon*mu_0new)/(n_jk(j) + 1.0/epsilon), 
             Sigma/(n_jk(j) + 1.0/epsilon)));
         }
         else
-          mu.col(j) = trans( mvrnormArma(1, mu_0new,  Sigma*epsilon) );           
+          mu.col(j) = trans( mvrnormScaling(mean_std.row(j+1).cols(0,p-1), mu_0new,  Sigma*epsilon) );           
       }      
     }
   }
