@@ -8,6 +8,15 @@ using namespace Rcpp;
 using namespace arma;
 
 
+struct k_coeffs_type
+{
+  unsigned S;
+  arma::mat mu;
+  arma::vec mu_0;
+  arma::mat Omega;
+  arma::mat Sigma;
+};
+
 class MCMC
 {
   private:
@@ -77,19 +86,21 @@ class MCMC
   
   Rcpp::List UpdateLogWs(   arma::mat N, 
                             arma::vec alpha  );
-                            
-  Rcpp::List UpdateSMuSigma(  arma::uvec Z,
-                              int k,  
-                              arma::vec mu_0,
-                              double varphi,
-                              arma::mat Sigma_1, 
-                              arma::mat Omega_1, 
-                              double k_0, 
-                              double epsilon,
-                              arma::vec m_1,
-                              double r,
-                              arma::mat mean_std,
-                              arma::mat cov_std  );      
+    
+                              
+    k_coeffs_type UpdateSMuSigma( arma::mat data_group,
+                                  arma::vec C_k,
+                                  int k,  
+                                  arma::vec mu_0,
+                                  double varphi,
+                                  arma::mat Sigma_1, 
+                                  arma::mat Omega_1, 
+                                  double k_0, 
+                                  double epsilon,
+                                  arma::vec m_1,
+                                  double r,
+                                  arma::mat mean_std,
+                                  arma::mat cov_std  );                                
                               
   double UpdateK0(  arma::cube Omega, 
                     arma::mat mu_0,

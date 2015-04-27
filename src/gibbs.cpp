@@ -264,28 +264,41 @@ void MCMC::main_loop()
     vec dfs = zeros<vec>( K_0 + K_1 + 1 );
     dfs.rows(1, K_0 + K_1)  =  cumsum( sum(N, 0).t() + nu_1 );
     
-    List tempSMuSigma;
-    // #pragma omp parallel for private(tempSMuSigma)
+    k_coeffs_type temp_kernel;
+    uvec Z_k;
+    vec C_k;
+    mat data_group, norm_mat_1, norm_mat_2;
+    vec mu_0k;
+    double unif_k;
+    #pragma omp parallel for private(temp_kernel, Z_k, data_group, C_k, mu_0k, unif_k, norm_mat_1, norm_mat_2)
     for(int k=0; k < K_0 + K_1; k++)
-    {      
-      tempSMuSigma = UpdateSMuSigma(  Z,
+    {    
+      Z_k = arma::find(Z==k);  
+      data_group = Y.rows(Z_k);
+      C_k = C(Z_k);
+      mu_0k = mu_0.col(k);
+      unif_k = unif_draws(k);
+      norm_mat_1 = norm_draws.rows( (J+1)*k, (J+1)*(k+1) - 1 );
+      norm_mat_2 = norm_draws_cov.rows(dfs(k), dfs(k+1) - 1 );
+      temp_kernel = UpdateSMuSigma(   data_group,
+                                      C_k,
                                       k,
-                                      mu_0.col(k),
+                                      mu_0k,
                                       varphi,
                                       Sigma_1, 
                                       Omega_1,
                                       k_0, 
                                       epsilon,
                                       m_1,
-                                      unif_draws(k),
-                                      norm_draws.rows( (J+1)*k, (J+1)*(k+1) - 1 ),
-                                      norm_draws_cov.rows(dfs(k), dfs(k+1) - 1 )
-                                    ); 
-      S(k) = Rcpp::as<unsigned>(tempSMuSigma["S"]);
-      mu.slice(k) = Rcpp::as<mat>(tempSMuSigma["mu"]); 
-      mu_0.col(k) = Rcpp::as<vec>(tempSMuSigma["mu_0"]);
-      Omega.slice(k) = Rcpp::as<mat>(tempSMuSigma["Omega"]);   
-      Sigma.slice(k) = Rcpp::as<mat>(tempSMuSigma["Sigma"]);   
+                                      unif_k,
+                                      norm_mat_1,
+                                      norm_mat_2
+                                  ); 
+      S(k) = temp_kernel.S;
+      mu.slice(k) = temp_kernel.mu;
+      mu_0.col(k) = temp_kernel.mu_0;
+      Omega.slice(k) = temp_kernel.Omega;
+      Sigma.slice(k) = temp_kernel.Sigma;      
       
     }  
     
@@ -621,22 +634,21 @@ Rcpp::List MCMC::UpdateLogWs(   arma::mat N,
 
 
 
-Rcpp::List MCMC::UpdateSMuSigma(  arma::uvec Z,
-                                  int k, 
-                                  arma::vec mu_0,
-                                  double varphi,
-                                  arma::mat Sigma_1, 
-                                  arma::mat Omega_1, 
-                                  double k_0, 
-                                  double epsilon,
-                                  arma::vec m_1,
-                                  double r,
-                                  arma::mat mean_std,
-                                  arma::mat cov_std  ) 
+k_coeffs_type MCMC::UpdateSMuSigma(   arma::mat data_group,
+                                      arma::vec C_k,
+                                      int k, 
+                                      arma::vec mu_0,
+                                      double varphi,
+                                      arma::mat Sigma_1, 
+                                      arma::mat Omega_1, 
+                                      double k_0, 
+                                      double epsilon,
+                                      arma::vec m_1,
+                                      double r,
+                                      arma::mat mean_std,
+                                      arma::mat cov_std  ) 
 { 
-  uvec Z_k = arma::find(Z==k);  
-  mat data_group = Y.rows(Z_k);
-  vec C_k = C(Z_k);
+  k_coeffs_type output;
   int p = data_group.n_cols;
   int N_k = data_group.n_rows;   
   unsigned S_k;
@@ -757,12 +769,14 @@ Rcpp::List MCMC::UpdateSMuSigma(  arma::uvec Z,
     }
   }
            
-  return Rcpp::List::create(  
-    Rcpp::Named( "S" ) = S_k,
-    Rcpp::Named( "mu" ) = mu.t(),
-    Rcpp::Named( "mu_0" ) = mu_0new,
-    Rcpp::Named( "Sigma" ) = Sigma,
-    Rcpp::Named( "Omega" ) = Omega) ;    
+           
+  output.S = S_k;
+  output.mu = mu;
+  output.mu_0 = mu_0new;
+  output.Sigma = Sigma;
+  output.Omega = Omega;
+  
+  return output;
 };
 
 
